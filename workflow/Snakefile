@@ -1,0 +1,86 @@
+
+sys.path.append(os.path.abspath("."))
+
+import collections, datetime, functools, glob, itertools, json, math, os, requests, shutil, tempfile, urllib
+from pprint import pprint
+
+import numpy as np, pandas as pd, sklearn as sk, sklearn.preprocessing
+import scipy as sp, scipy.stats
+
+import Bio, Bio.PDB
+
+wildcard_constraints: # Constrain wildcards to prevent rule ambiguities: https://snakemake.readthedocs.io/en/stable/snakefiles/rules.html#wildcards
+    # Compounds: prism/a/afatinib, adhoc/q/quercetin, ...
+    compound_pref = r'adhoc|astex|gdsc|prism_\w|rhub|xdock', # prism/a/afatinib, adhoc/q/quercetin, ...
+    compound_id = r'(\w|\%|\-)+', # Any word, percentage, hyphen
+    # Structures: always start with a UniProt id, e.g. P00533_s_3qwq_e7 (SWISS_MODEL) or P00533_model1 (RoseTTAFold)
+    struct_pref = r'\w\w',
+    struct_id = r'(\w|-|_)+',
+    screen_id = r'(\w|\%|\-)+', # Any word, percentage, hyphen
+    prev_steps = r'(\w|\.)*?', # zero or more word characters or a dot, minimal match
+    base = r'\w+', # base directory
+
+from workflow.modules import *
+
+import resources
+
+@functools.lru_cache()
+def read_af2_not_swiss():
+    df_af2_ = resources.read_afdb()
+    in_swiss_ = set(resources.read_swiss()['UniProtKB_ac'])
+    print(uf(len(in_swiss_)), 'UniProtKB_ac in SWISS-MODEL index')
+    df_af2_['in_swiss'] = [* map(lambda uniprot_: uniprot_ in in_swiss_, df_af2_['uniprot_'])]
+    df_af2_['in_swiss'].value_counts()
+    df_af2_ = df_af2_.query('in_swiss == False')
+    assert any(df_af2_['uniprot_'].duplicated()) == False
+    print(uf(len(df_af2_)), 'single-pdb AF2 models not in SWISS-MODEL (checked unique UniProtKB_ac)')
+    return df_af2_.rename({'uniprot_': 'UniProtKB_ac'}, axis=1)#.head(20)
+
+rule af2:
+    # Small number of structures have `v2` structures, e.g. Q9BXP8, Q13219
+    output:
+        pdb = pfile(struct_id='{}', step='af2', suffix='.pdb'),
+    shell: """
+        wget -O {output.pdb} https://alphafold.ebi.ac.uk/files/AF-{wildcards.struct_id}-F1-model_v1.pdb ||\
+        wget -O {output.pdb} https://alphafold.ebi.ac.uk/files/AF-{wildcards.struct_id}-F1-model_v2.pdb
+    """
+
+rule af2_not_swiss:
+    """
+    snakemake af2_not_swiss --cores $LSB_DJOB_NUMPROC --use-conda --dry-run
+    """
+    input:
+        pdb = [ pfile(struct_id=struct_id, step='af2', suffix='.pdb', base='results') for struct_id in read_af2_not_swiss()['UniProtKB_ac'] ],
+    output:
+        tsv = 'results/af2_not_swiss.tsv',
+    run:
+        def get_resid_pLDDT(fp_):
+            resseq_pLDDT = collections.OrderedDict()
+            parser = Bio.PDB.PDBParser(QUIET=True)
+            structure = parser.get_structure(fp_, fp_)
+            for chains in structure:
+                for chain in chains:
+                    for residue in chain:
+                        resname = residue.get_resname()
+                        hetflag, resseq, icode = residue.get_id()
+                        for atom in residue:
+                            resseq_pLDDT[resseq] = atom.bfactor
+            return resseq_pLDDT
+
+        def get_af2_stats(fp_):
+            resseq_pLDDT = get_resid_pLDDT(fp_)
+            return len(resseq_pLDDT), np.mean(list(resseq_pLDDT.values()))
+
+        col_ = ['UniProtKB_ac', 'n_resid', 'mean_pLDDT']
+        df_ = read_af2_not_swiss()
+        df_[['n_resid', 'mean_pLDDT']] = [* map(get_af2_stats, input.pdb) ]
+        df_[col_].to_csv(output.tsv, sep='\t', index=False, header=True, float_format='%.2f')
+
+
+rule fig4D_source_data:
+    """
+    snakemake fig4D_source_data --cores $LSB_DJOB_NUMPROC --use-conda --dry-run
+    """
+    input:
+        tsv = 'results/af2_not_swiss.tsv',
+        #pdb = [ pfile(struct_id=struct_id, step='af2', suffix='.pdb', base='results') for struct_id in read_af2_not_swiss()['UniProtKB_ac'] ],
