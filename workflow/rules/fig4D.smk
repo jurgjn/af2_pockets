@@ -41,7 +41,6 @@ rule af2_not_swiss:
         df_[['n_resid', 'mean_pLDDT']] = [* map(get_af2_stats, input.pdb) ]
         df_[col_].to_csv(output.tsv, sep='\t', index=False, header=True, float_format='%.2f')
 
-
 rule uniprot_txt:
     output:
         txt = pfile(struct_id='{}', step='uniprot_txt', suffix='.txt'),
