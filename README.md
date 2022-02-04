@@ -1,1 +1,2 @@
-# af2_pockets
+# Functional characterisation of AF2 models by pocket and structural motif prediction
+Code and intermediate results of pocket detection and function prediction analyses presented in ([Akdel et al. 2021](https://doi.org/10.1101/2021.09.26.461876 "")).
