@@ -1,0 +1,50 @@
+rule af2_wget: # https://www.alphafold.ebi.ac.uk/download
+    output:
+        '{af2_bulk_id}.tar'
+    shell: """
+        wget https://ftp.ebi.ac.uk/pub/databases/alphafold/latest/{wildcards.af2_bulk_id}.tar
+    """
+
+rule af2_pdb:
+    """Extract AF2 bulk archive into prefix-derived subdirectories to keep individual directory sizes manageable
+
+    Testing:
+        tar -tf UP000000625_83333_ECOLI_v2.tar --exclude='*.cif.gz' --xform='s|\(^AF-\)\(..\)\(..\)\(..\)\(.*\)\(-F1-model_v2.pdb.gz$\)|pdb/\2/\3/\4/\2\3\4\5.pdb.gz|' --verbose --show-transformed-names
+
+    Refs:
+    https://unix.stackexchange.com/questions/198151/tar-extract-into-directory-with-same-base-name
+    https://www.gnu.org/software/sed/manual/html_node/Back_002dreferences-and-Subexpressions.html
+    """
+    input:
+        tar = '{af2_bulk_id}.tar',
+    output:
+        txt = 'pdb/{af2_bulk_id}.txt',
+    shell: """
+        tar -xf {input.tar} --exclude='*.cif.gz' --xform='s|\\(^AF-\\)\\(..\\)\\(..\\)\\(..\\)\\(.*\\)\\(-F1-model_v2.pdb.gz$\\)|pdb/\\2/\\3/\\4/\\2\\3\\4\\5.pdb.gz|'
+        tar -tf {input.tar} --exclude='*.cif.gz' --xform='s|\\(^AF-\\)\\(..\\)\\(..\\)\\(..\\)\\(.*\\)\\(-F1-model_v2.pdb.gz$\\)|pdb/\\2/\\3/\\4/\\2\\3\\4\\5.pdb.gz|' --show-transformed-names > {output.txt}
+    """
+
+rule all:
+    """
+    snakemake all --cores 1 --dry-run
+    """
+    input:
+        [f'pdb/{af2_bulk_id}.txt' for af2_bulk_id in [
+            'UP000006548_3702_ARATH_v2',
+            'UP000001940_6239_CAEEL_v2',
+            'UP000000559_237561_CANAL_v2',
+            'UP000000437_7955_DANRE_v2',
+            'UP000002195_44689_DICDI_v2',
+            'UP000000803_7227_DROME_v2',
+            'UP000000625_83333_ECOLI_v2',
+            'UP000008827_3847_SOYBN_v2',
+            'UP000005640_9606_HUMAN_v2',
+            'UP000000805_243232_METJA_v2',
+            'UP000000589_10090_MOUSE_v2',
+            'UP000059680_39947_ORYSJ_v2',
+            'UP000002494_10116_RAT_v2',
+            'UP000002311_559292_YEAST_v2',
+            'UP000002485_284812_SCHPO_v2',
+            'UP000007305_4577_MAIZE_v2',
+        ]]
+
