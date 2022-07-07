@@ -1,17 +1,4 @@
 
-def get_resid_pLDDT(fp_):
-    resseq_pLDDT = collections.OrderedDict()
-    parser = Bio.PDB.PDBParser(QUIET=True)
-    structure = parser.get_structure(fp_, fp_)
-    for chains in structure:
-        for chain in chains:
-            for residue in chain:
-                resname = residue.get_resname()
-                hetflag, resseq, icode = residue.get_id()
-                for atom in residue:
-                    resseq_pLDDT[resseq] = atom.bfactor
-    return resseq_pLDDT
-
 localrules: obabel_hxr
 
 rule obabel_hxr:

@@ -1,46 +1,62 @@
 
-@functools.lru_cache()
-def read_af2_not_swiss():
-    df_af2_ = resources.read_afdb().rename({'uniprot_': 'UniProtKB_ac'}, axis=1)
-    in_swiss_ = set(resources.read_swiss()['UniProtKB_ac'])
-    print(uf(len(in_swiss_)), 'UniProtKB_ac in SWISS-MODEL index')
-    df_af2_['in_swiss'] = [* map(lambda uniprot_: uniprot_ in in_swiss_, df_af2_['UniProtKB_ac'])]
-    df_af2_['in_swiss'].value_counts()
-    df_af2_ = df_af2_.query('in_swiss == False')
-    assert any(df_af2_['UniProtKB_ac'].duplicated()) == False
-    print(uf(len(df_af2_)), 'single-pdb AF2 models not in SWISS-MODEL (checked unique UniProtKB_ac)')
-    return df_af2_
-    #return df_af2_.head(10)
-    #blacklist_ = ['Q5VWN6', 'P46821'] # Two >2000 aa structures with slow pocket detection
-    #return df_af2_.query('~(UniProtKB_ac in @blacklist_)')#.head(10)
+import gzip
 
-rule af2:
-    # Small number of structures have `v2` structures, e.g. Q9BXP8, Q13219
+# Replaced with: ln -sf resources/afdb/pdb results_af2/af2
+#rule af2:
+#    input:
+#        pdb = 'resources/afdb/pdb/{struct_pref}/{struct_id}.pdb.gz',
+#    output:
+#        pdb = pfile(struct_id='{}', step='af2', suffix='.pdb.gz'),
+#    shell: """
+#        ln {input.pdb} {output.pdb}
+#    """
+
+configfile: 'config/config.yaml'
+
+def af2_resid_pLDDT(fp_):
+    resseq_pLDDT = collections.OrderedDict()
+    parser = Bio.PDB.PDBParser(QUIET=True)
+    fh_ = gzip.open(fp_, 'rt') # https://github.com/biopython/biopython/issues/3498#issuecomment-796563490
+    structure = parser.get_structure(fp_, fh_)
+    for chains in structure:
+        for chain in chains:
+            for residue in chain:
+                resname = residue.get_resname()
+                hetflag, resseq, icode = residue.get_id()
+                for atom in residue:
+                    resseq_pLDDT[resseq] = atom.bfactor
+    return resseq_pLDDT
+
+def af2_n_resid_mean_pLDDT(fp_):
+    resseq_pLDDT = af2_resid_pLDDT(fp_)
+    return len(resseq_pLDDT), np.mean(list(resseq_pLDDT.values()))
+
+rule af2_bulk_stats:
+    input:
+        txt = 'results_af2/af2/{af2_bulk_id}.txt',
     output:
-        pdb = pfile(struct_id='{}', step='af2', suffix='.pdb'),
-    shell: """
-        wget -O {output.pdb} https://alphafold.ebi.ac.uk/files/AF-{wildcards.struct_id}-F1-model_v1.pdb ||\
-        wget -O {output.pdb} https://alphafold.ebi.ac.uk/files/AF-{wildcards.struct_id}-F1-model_v2.pdb
-    """
+        tsv = 'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv',
+    resources:
+        runtime = '02:00', # Runtime in hrs
+        memory = '10000', # RAM in MB
+    run:
+        df_ = pd.read_csv(input.txt, names=['pdb_gz'])
+        df_['pdb_gz'] = 'results_af2/af2' + df_['pdb_gz'].str.removeprefix('pdb')
+        df_['accession'] = df_['pdb_gz'].str.removesuffix('.pdb.gz').map(os.path.basename)
+        df_ = df_.set_index('accession', drop=True)
+        df_[['af2_n_resid', 'af2_mean_pLDDT']] = [* map(af2_n_resid_mean_pLDDT, df_['pdb_gz']) ]
+        df_.af2_n_resid = df_.af2_n_resid.astype(int)
+        df_.to_csv(output.tsv, sep='\t', index=True, header=True, float_format='%.2f')
 
-rule af2_not_swiss:
+rule af2_bulk:
     """
-    snakemake af2_not_swiss --cores $LSB_DJOB_NUMPROC --use-conda --dry-run
+    time snakemake af2_bulk --cores 1 --dry-run
+    time snakemake af2_bulk --profile euler --cores 1 --dry-run
     """
     input:
-        pdb = [ pfile(struct_id=struct_id, step='af2', suffix='.pdb', base='results') for struct_id in read_af2_not_swiss()['UniProtKB_ac'] ],
-    output:
-        tsv = 'results/af2_not_swiss.tsv',
-    run:
-        def get_af2_stats(fp_):
-            resseq_pLDDT = get_resid_pLDDT(fp_)
-            return len(resseq_pLDDT), np.mean(list(resseq_pLDDT.values()))
+        [f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] ],
 
-        col_ = ['UniProtKB_ac', 'n_resid', 'mean_pLDDT']
-        df_ = read_af2_not_swiss()
-        df_[['n_resid', 'mean_pLDDT']] = [* map(get_af2_stats, input.pdb) ]
-        df_[col_].to_csv(output.tsv, sep='\t', index=False, header=True, float_format='%.2f')
-
+'''
 rule uniprot_txt:
     output:
         txt = pfile(struct_id='{}', step='uniprot_txt', suffix='.txt'),
@@ -104,3 +120,4 @@ rule fig4D_source_data:
         df_['autosite_score_95'] = [ *map(lambda fp_: score_(fp_, mean_pLDDT_thresh_=95), input.tsv) ]
 
         df_.to_csv(output.tsv, sep='\t', index=False, float_format='%.2f')
+'''

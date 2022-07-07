@@ -20,15 +20,8 @@ import scipy.special
 
 import pandas as pd
 
-import sklearn as sk
-import sklearn.decomposition
-import sklearn.linear_model
-import sklearn.metrics
-import sklearn.naive_bayes
-import sklearn.preprocessing
 import matplotlib
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 def uf(x):
     return '{:,}'.format(x)
@@ -85,8 +78,8 @@ def pfile(asset_id=None, compound_id=None, struct_id=None, screen_id=None, step=
 
         if not(struct_id is None):
             if struct_id != '{}':
-                #struct_pref = os.path.join(struct_id[:2], struct_id[2:4], struct_id[4:6])
-                struct_pref = struct_id[:2]
+                struct_pref = os.path.join(struct_id[:2], struct_id[2:4], struct_id[4:6])
+                #struct_pref = struct_id[:2]
             else:
                 struct_pref = '{struct_pref}'
                 struct_id = '{struct_id}'

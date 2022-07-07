@@ -6,6 +6,7 @@ rule lbsp:
         gunzip -c resources/Clark2020/LBSp_dataset/data_files/{wildcards.struct_id}.pdb1.gz > {output.pdb} || gunzip -c resources/Clark2020/LBSp_dataset/CryptoSite_overlap_data_files/{wildcards.struct_id}.pdb1.gz > {output.pdb}
     """
 
+'''
 @functools.lru_cache()
 def read_sifts_unique(v=True):
     """ Select families with a unique SIFTS mapping 
@@ -74,3 +75,4 @@ rule fig4ABC_source_data:
         l_df_ = [* map(lambda fp: pd.read_csv(fp, sep='\t', dtype={'struct_id': 'str'}), input) ]
         df_ = pd.concat(l_df_, axis=0)
         df_.to_csv(output.tsv, index=False, sep='\t')
+'''
