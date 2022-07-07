@@ -1,8 +1,4 @@
 
-import gzip
-
-configfile: 'config/config.yaml'
-
 def af2_resid_pLDDT(fp_):
     resseq_pLDDT = collections.OrderedDict()
     parser = Bio.PDB.PDBParser(QUIET=True)
@@ -81,78 +77,32 @@ rule af2_bulk_stats:
         df_.af2_n_resid = df_.af2_n_resid.astype(int)
         df_.to_csv(output.tsv, sep='\t', index=True, header=True, float_format='%.2f')
 
+rule af2_bulk_prank:
+    """
+    software/p2rank_2.4/prank predict -c alphafold -o results_af2/af2_bulk_p2rank UP000005640_9606_HUMAN_v2.txt
+    """
+    input:
+        txt = 'resources/afdb/pdb/{af2_bulk_id}.txt',
+    output:
+        txt = temp('{af2_bulk_id}.txt'),
+        dir = directory('results_af2/af2_bulk_prank/{af2_bulk_id}'),
+    resources:
+        runtime = '12:00', # Runtime in hrs
+        memory = '10000', # RAM in MB
+    threads: 10
+    shell: """
+        cp {input.txt} {output.txt}
+        software/p2rank_2.4/prank predict -threads 10 -c alphafold -o {output.dir} {output.txt}
+    """
+
 rule af2_bulk:
     """
+    time snakemake af2_bulk --cores 1 --until af2_wget --dry-run
     time snakemake af2_bulk --cores 1 --until af2_pdb --dry-run
     time snakemake af2_bulk --profile euler --cores 1 --dry-run
     """
     input:
         #[f'resources/afdb/{af2_bulk_id}.tar' for af2_bulk_id in config['af2_bulk_id'] ],
         #[f'resources/afdb/pdb/{af2_bulk_id}.txt' for af2_bulk_id in config['af2_bulk_id'] ],
-        [f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] ],
-
-'''
-rule uniprot_txt:
-    output:
-        txt = pfile(struct_id='{}', step='uniprot_txt', suffix='.txt'),
-    shell: """
-        wget -O {output.txt} https://www.uniprot.org/uniprot/{wildcards.struct_id}.txt
-    """
-
-def has_catalytic_activity(fp):
-    try:
-        # http://biopython.org/DIST/docs/tutorial/Tutorial.html#sec170
-        with open(fp) as fh:
-            rec = Bio.SwissProt.read(fh)
-            #print(dir(rec))
-            for _ in rec.comments:
-                if _.startswith('CATALYTIC ACTIVITY:'):
-                    #print(_)
-                    return _
-    except ValueError as e:
-        print(fp, e)
-    return False
-
-def has_EC(fp):
-    try:
-        # http://biopython.org/DIST/docs/tutorial/Tutorial.html#sec170
-        with open(fp) as fh:
-            rec = Bio.SwissProt.read(fh)
-            #print(dir(rec))
-            if '; EC=' in rec.description:
-                return rec.description
-    except ValueError as e:
-        print(fp, e)
-    return False
-
-rule fig4D_source_data:
-    """
-    snakemake fig4D_source_data --cores $LSB_DJOB_NUMPROC --use-conda --dry-run
-    """
-    input:
-        af2_not_swiss = 'results/af2_not_swiss.tsv',
-        txt = [ pfile(struct_id=struct_id, step='uniprot_txt', suffix='.txt', base='results') for struct_id in read_af2_not_swiss()['UniProtKB_ac'] ],
-        tsv = [ pfile(struct_id=struct_id, step='af2.obabel_hxr.autosite.summary', suffix='.tsv', base='results') for struct_id in read_af2_not_swiss()['UniProtKB_ac'] ],
-    output:
-        tsv = 'fig4D.tsv'
-    run:
-        df_ = pd.read_csv(input.af2_not_swiss, sep='\t')#.head(10)
-        df_['has_catalytic_activity'] = [ *map(has_catalytic_activity, input.txt) ]
-        df_['has_EC'] = [ *map(has_EC, input.txt) ]
-        df_['has_activity'] = (df_['has_catalytic_activity'] != False) | (df_['has_EC'] != False)
-
-        def score_(fp_, mean_pLDDT_thresh_=0):
-            df_ = pd.read_csv(fp_, sep='\t').query('mean_pLDDT >= @mean_pLDDT_thresh_')
-            if len(df_) > 0:
-                return df_.head(1)['score'].tolist()[0]
-            else:
-                return 0
-
-        df_['autosite_score'] = [ *map(score_, input.tsv) ]
-        df_['autosite_score_50'] = [ *map(lambda fp_: score_(fp_, mean_pLDDT_thresh_=50), input.tsv) ]
-        df_['autosite_score_70'] = [ *map(lambda fp_: score_(fp_, mean_pLDDT_thresh_=70), input.tsv) ]
-        df_['autosite_score_90'] = [ *map(lambda fp_: score_(fp_, mean_pLDDT_thresh_=90), input.tsv) ]
-        df_['autosite_score_95'] = [ *map(lambda fp_: score_(fp_, mean_pLDDT_thresh_=95), input.tsv) ]
-
-        df_.to_csv(output.tsv, sep='\t', index=False, float_format='%.2f')
-'''
+        #[f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] ],
+        [f'results_af2/af2_bulk_prank/{af2_bulk_id}/' for af2_bulk_id in config['af2_bulk_id'] ],
