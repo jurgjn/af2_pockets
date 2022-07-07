@@ -22,5 +22,5 @@ import resources
 
 include: 'rules/common.smk'
 
-include: 'rules/fig4ABC.smk'
-include: 'rules/fig4D.smk'
+#include: 'rules/fig4ABC.smk'
+include: 'rules/af2_bulk.smk'
