@@ -77,6 +77,17 @@ rule af2_bulk_stats:
         df_.af2_n_resid = df_.af2_n_resid.astype(int)
         df_.to_csv(output.tsv, sep='\t', index=True, header=True, float_format='%.2f')
 
+localrules: af2_bulk_stats_gather
+
+rule af2_bulk_stats_gather:
+    input:
+        tsv = [f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] ],
+    output:
+        tsv = 'results_af2/af2_bulk_stats.tsv',
+    run:
+        df_ = pd.concat([ pd.read_csv(fp, sep='\t') for fp in input.tsv], axis=0).set_index('af2_model_id', drop=True).sort_index()
+        df_.to_csv(output.tsv, sep='\t', index=True, header=True, float_format='%.2f')
+
 rule af2_bulk_prank:
     """
     software/p2rank_2.4/prank predict -c alphafold -o results_af2/af2_bulk_p2rank UP000005640_9606_HUMAN_v2.txt
@@ -87,9 +98,9 @@ rule af2_bulk_prank:
         txt = temp('{af2_bulk_id}.txt'),
         dir = directory('results_af2/af2_bulk_prank/{af2_bulk_id}'),
     resources:
-        runtime = '12:00', # Runtime in hrs
+        cores = 10,
+        runtime = '24:00', # Runtime in hrs
         memory = '10000', # RAM in MB
-    threads: 10
     shell: """
         cp {input.txt} {output.txt}
         software/p2rank_2.4/prank predict -threads 10 -c alphafold -o {output.dir} {output.txt}
@@ -99,10 +110,16 @@ rule af2_bulk:
     """
     time snakemake af2_bulk --cores 1 --until af2_wget --dry-run
     time snakemake af2_bulk --cores 1 --until af2_pdb --dry-run
+    time snakemake af2_bulk --cores 1 --dry-run
     time snakemake af2_bulk --profile euler --cores 1 --dry-run
     """
     input:
-        #[f'resources/afdb/{af2_bulk_id}.tar' for af2_bulk_id in config['af2_bulk_id'] ],
-        #[f'resources/afdb/pdb/{af2_bulk_id}.txt' for af2_bulk_id in config['af2_bulk_id'] ],
-        #[f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] ],
+        # Bulk download:
+        [f'resources/afdb/{af2_bulk_id}.tar' for af2_bulk_id in config['af2_bulk_id'] ],
+        # Unpack:
+        [f'resources/afdb/pdb/{af2_bulk_id}.txt' for af2_bulk_id in config['af2_bulk_id'] ],
+        # Calculate stats (n_resid, mean_pLDDT):
+        [f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] ],
+        'results_af2/af2_bulk_stats.tsv',
+        # Pocket detection:
         [f'results_af2/af2_bulk_prank/{af2_bulk_id}/' for af2_bulk_id in config['af2_bulk_id'] ],

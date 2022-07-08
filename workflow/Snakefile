@@ -11,11 +11,10 @@ wildcard_constraints: # Constrain wildcards to prevent rule ambiguities: https:/
     prev_steps = r'(\w|\.)*?', # zero or more word characters or a dot, minimal match
     base = r'\w+', # base directory
 
-import collections, datetime, functools, glob, gzip, itertools, json, math, os, os.path, requests, shutil, tempfile, urllib
-
+import collections, datetime, functools, glob, gzip, itertools, json, math, os, os.path, requests, shutil, tempfile, urllib, xml.etree.ElementTree as ET
 from pprint import pprint
 
-import numpy as np, scipy as sp, scipy.stats, pandas as pd
+import numpy as np, scipy as sp, scipy.stats, pandas as pd, matplotlib.pyplot as plt
 import Bio, Bio.PDB, Bio.SwissProt
 
 from workflow.modules import *
