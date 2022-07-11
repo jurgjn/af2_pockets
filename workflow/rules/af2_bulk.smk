@@ -59,13 +59,28 @@ rule af2_pdb:
         tar -tf {input.tar} --exclude='*.cif.gz' --xform='s|\\(^AF-\\)\\(..\\)\\(..\\)\\(..\\)\\(.*\\)\\(-model_v2.pdb.gz$\\)|resources/afdb/pdb/\\2/\\3/\\4/\\2\\3\\4\\5.pdb.gz|' --show-transformed-names > {output.txt}
     """
 
+rule af2_pdb_swissprot:
+    """
+    time snakemake af2_pdb_swissprot --cores 1  --dry-run
+    """
+    input:
+        txt_ln = 'results_af2/af2/swissprot_pdb_v2.txt',
+    run:
+        df_ = pd.read_csv(input.txt_ln, names=['pdb_gz'])
+        df_['prefix'] = df_['pdb_gz'].map(lambda s: os.path.split(s)[1][:2])
+        print('af2_bulk_id_unpacked:')
+        for prefix, df_prefix in df_.groupby('prefix'):
+            print(f'- swissprot_pdb_v2_{prefix}')
+            txt_prefix = f'results_af2/af2/swissprot_pdb_v2_{prefix}.txt'
+            df_prefix['pdb_gz'].to_csv(txt_prefix, index=False, header=False)
+
 rule af2_bulk_stats:
     input:
         txt = 'results_af2/af2/{af2_bulk_id}.txt',
     output:
         tsv = 'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv',
     resources:
-        runtime = '02:00', # Runtime in hrs
+        runtime = '48:00', # Runtime in hrs
         memory = '10000', # RAM in MB
     run:
         df_ = pd.read_csv(input.txt, names=['pdb_gz'])
@@ -81,7 +96,7 @@ localrules: af2_bulk_stats_gather
 
 rule af2_bulk_stats_gather:
     input:
-        tsv = [f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] ],
+        tsv = [f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] + config['swissprot_pdb_v2_chunks'] ],
     output:
         tsv = 'results_af2/af2_bulk_stats.tsv',
     run:
@@ -119,7 +134,7 @@ rule af2_bulk:
         # Unpack:
         [f'resources/afdb/pdb/{af2_bulk_id}.txt' for af2_bulk_id in config['af2_bulk_id'] ],
         # Calculate stats (n_resid, mean_pLDDT):
-        [f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] ],
+        [f'results_af2/af2_bulk_stats/{af2_bulk_id}.tsv' for af2_bulk_id in config['af2_bulk_id'] + config['swissprot_pdb_v2_chunks'] ],
         'results_af2/af2_bulk_stats.tsv',
         # Pocket detection:
-        [f'results_af2/af2_bulk_prank/{af2_bulk_id}/' for af2_bulk_id in config['af2_bulk_id'] ],
+        [f'results_af2/af2_bulk_prank/{af2_bulk_id}/' for af2_bulk_id in config['af2_bulk_id'] + config['swissprot_pdb_v2_chunks'] ],
