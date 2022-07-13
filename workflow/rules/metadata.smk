@@ -64,32 +64,46 @@ def extract_all_vs_all(fp, accessions, stop=1000):
             elif event == 'end':
                 if path == ['uniprot', 'entry', 'accession']:
                     attr['accession'] = set([elem.text]) if not('accession' in attr.keys()) else attr['accession'] | set([elem.text])
+
                 elif path == ['uniprot', 'entry', 'gene', 'name'] and elem.attrib['type'] == 'primary':
                     attr['gene_name_primary'] = elem.text
+
                 elif path == ['uniprot', 'entry', 'organism', 'name'] and (elem.attrib['type'] == 'scientific'):
                     attr['organism_name_scientific'] = elem.text
+
                 elif path == ['uniprot', 'entry', 'organism', 'dbReference'] and (elem.attrib['type'] == 'NCBI Taxonomy'):
                     attr['organism_dbReference_NCBI_Taxonomy'] = elem.attrib['id']
+
                 elif path == ['uniprot', 'entry', 'dbReference'] and (elem.attrib['type'] == 'EC'):
                     attr['dbReference_EC_Id'] = elem.attrib['id']
+
                 elif path == ['uniprot', 'entry', 'dbReference'] and (elem.attrib['type'] == 'PDB'):
-                    attr['dbReference_PDB_Id'] = elem.attrib['id'] if not('dbReference_PDB' in attr.keys()) else ';'.join([attr['dbReference_PDB'], elem.attrib['id']])
+                    attr['dbReference_PDB_Id'] = elem.attrib['id'] if not('dbReference_PDB_Id' in attr.keys()) else ';'.join([attr['dbReference_PDB_Id'], elem.attrib['id']])
+
                 elif path == ['uniprot', 'entry', 'dbReference'] and (elem.attrib['type'] == 'Pfam'):
-                    attr['dbReference_Pfam_Id'] = elem.attrib['id']
+                    attr['dbReference_Pfam_Id'] = elem.attrib['id'] if not('dbReference_Pfam_Id' in attr.keys()) else ';'.join([attr['dbReference_Pfam_Id'], elem.attrib['id']])
+
                 elif path == ['uniprot', 'entry', 'dbReference', 'property'] and (path_elem[2].attrib['type'] == 'Pfam') and (elem.attrib['type'] == 'entry name'):
-                    attr['dbReference_Pfam_entry_name'] = elem.attrib['value']
+                    attr['dbReference_Pfam_entry_name'] = elem.attrib['value'] if not('dbReference_Pfam_entry_name' in attr.keys()) else ';'.join([attr['dbReference_Pfam_entry_name'], elem.attrib['value']])
+
                 elif path == ['uniprot', 'entry', 'dbReference'] and (elem.attrib['type'] == 'InterPro'):
-                    attr['dbReference_InterPro_Id'] = elem.attrib['id']
+                    attr['dbReference_InterPro_Id'] = elem.attrib['id'] if not('dbReference_InterPro_Id' in attr.keys()) else ';'.join([attr['dbReference_InterPro_Id'], elem.attrib['id']])
+
                 elif path == ['uniprot', 'entry', 'dbReference', 'property'] and (path_elem[2].attrib['type'] == 'InterPro') and (elem.attrib['type'] == 'entry name'):
-                    attr['dbReference_InterPro_entry_name'] = elem.attrib['value']
+                    attr['dbReference_InterPro_entry_name'] = elem.attrib['value'] if not('dbReference_InterPro_entry_name' in attr.keys()) else ';'.join([attr['dbReference_InterPro_entry_name'], elem.attrib['value']])
+                    
                 elif path == ['uniprot', 'entry', 'dbReference'] and (elem.attrib['type'] == 'PROSITE'):
-                    attr['dbReference_PROSITE_Id'] = elem.attrib['id']
+                    attr['dbReference_PROSITE_Id'] = elem.attrib['id'] if not('dbReference_PROSITE_Id' in attr.keys()) else ';'.join([attr['dbReference_PROSITE_Id'], elem.attrib['id']])
+
                 elif path == ['uniprot', 'entry', 'dbReference', 'property'] and (path_elem[2].attrib['type'] == 'PROSITE') and (elem.attrib['type'] == 'entry name'):
-                    attr['dbReference_PROSITE_entry_name'] = elem.attrib['value']
+                    attr['dbReference_PROSITE_entry_name'] = elem.attrib['value'] if not('dbReference_PROSITE_entry_name' in attr.keys()) else ';'.join([attr['dbReference_PROSITE_entry_name'], elem.attrib['value']])
+
                 elif path == ['uniprot', 'entry', 'dbReference'] and (elem.attrib['type'] == 'SUPFAM'):
-                    attr['dbReference_SUPFAM_Id'] = elem.attrib['id']
+                    attr['dbReference_SUPFAM_Id'] = elem.attrib['id'] if not('dbReference_SUPFAM_Id' in attr.keys()) else ';'.join([attr['dbReference_SUPFAM_Id'], elem.attrib['id']])
+
                 elif path == ['uniprot', 'entry', 'dbReference', 'property'] and (path_elem[2].attrib['type'] == 'SUPFAM') and (elem.attrib['type'] == 'entry name'):
-                    attr['dbReference_SUPFAM_entry_name'] = elem.attrib['value']
+                    attr['dbReference_SUPFAM_entry_name'] = elem.attrib['value'] if not('dbReference_SUPFAM_entry_name' in attr.keys()) else ';'.join([attr['dbReference_SUPFAM_entry_name'], elem.attrib['value']])
+
                 elif path == ['uniprot', 'entry']:
                     if len(attr['accession'] & accessions) > 0:
                         attr['accession'] = ';'.join(sorted(attr['accession'] & accessions))
@@ -105,11 +119,11 @@ rule extract_all_vs_all:
     time snakemake --profile euler extract_all_vs_all --cores 1 --dry-run
     """
     input:
-        sprot_xml_gz = 'current_release/uniprot_sprot.xml.gz',
-        trembl_xml_gz = 'current_release/uniprot_trembl.xml.gz',
-        tsv_gz = '../../22.07.01_foldseek_all_vs_all/afswiss_proteom_ava.accessions.m8.gz',
+        sprot_xml_gz = 'resources/uniprot/current_release/uniprot_sprot.xml.gz',
+        trembl_xml_gz = 'resources/uniprot/current_release/uniprot_trembl.xml.gz',
+        tsv_gz = 'resources/foldseek_all_vs_all/afswiss_proteom_ava.accessions.m8.gz',
     output:
-        tsv_gz = '../../22.07.01_foldseek_all_vs_all/afswiss_proteom_ava.accessions_with_metadata-YY.MM.DD.tsv.gz',
+        tsv_gz = 'results_ava/afswiss_proteom_ava.accessions_with_metadata-YY.MM.DD.tsv.gz',
     resources:
         runtime = '48:00', # Runtime in hrs
         memory = '100000', # RAM in MB

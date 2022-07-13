@@ -8,9 +8,10 @@ rule afswiss_proteom_log10evalue:
         m8_gz = 'resources/foldseek_all_vs_all/afswiss_proteom_ava.m8.gz',
     output:
         tsv_gz = 'results_ava/afswiss_proteom_ava.log10_evalue.tsv.gz',
+        tsv_gz_minimal = 'results_ava/afswiss_proteom_ava.log10_evalue_only.tsv.gz',
         parquet = 'results_ava/afswiss_proteom_ava.log10_evalue.parquet',
     resources:
-        runtime = '06:00', # Runtime in hrs
+        runtime = '12:00', # Runtime in hrs
         memory = '500000', # RAM in MB
     params:
         #nrows = 1000000,
@@ -29,6 +30,7 @@ rule afswiss_proteom_log10evalue:
         df_raw = df_raw.sort_values(['log10_evalue'], ascending=False)
         
         df_raw.to_csv(output.tsv_gz, index=False, header=True, sep='\t')
+        df_raw[['query', 'target', 'log10_evalue']].to_csv(output.tsv_gz_minimal, index=False, header=True, sep='\t')
         df_raw.to_parquet(output.parquet)
 
 rule afswiss_proteom_cc:

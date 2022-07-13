@@ -101,7 +101,7 @@ rule af2_bulk_stats_gather:
         tsv = 'results_af2/af2_bulk_stats.tsv',
     run:
         df_ = pd.concat([ pd.read_csv(fp, sep='\t') for fp in input.tsv], axis=0).set_index('af2_model_id', drop=True).sort_index()
-        df_.to_csv(output.tsv, sep='\t', index=True, header=True, float_format='%.2f')
+        df_.drop_duplicates(keep='first').to_csv(output.tsv, sep='\t', index=True, header=True, float_format='%.2f')
 
 rule af2_bulk_prank:
     """
